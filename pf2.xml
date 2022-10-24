@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<Process>
+    <operation>
+        <type>calculate</type>
+        <min>10</min>
+        <max>110</max>
+    </operation>
+    <operation>
+        <type>io</type>
+        <min>1</min>
+        <max>25</max>
+    </operation>
+    <operation>
+        <type>io</type>
+        <min>3</min>
+        <max>26</max>
+    </operation>
+    <operation>
+        <type>io</type>
+        <min>5</min>
+        <max>25</max>
+    </operation>
+    <operation>
+        <type>calculate</type>
+        <min>17</min>
+        <max>117</max>
+    </operation>
+</Process> 
