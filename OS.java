@@ -17,7 +17,6 @@ import org.xml.sax.SAXException;
 
 
 
-
 public class OS {
     static int ID=0; 
     static ArrayList<Process> Processes = new ArrayList<Process>();
@@ -25,15 +24,118 @@ public class OS {
     static ArrayList<Process> IO = new ArrayList<Process>();
     static ArrayList<PCB> Memory=new ArrayList<PCB>();
     static int stats; static int lock;
+    
+    static PageTable pt = new PageTable();
+    static NoncontiguousMemory mem= new NoncontiguousMemory();
+
+    static class ContiguousMemory{
+        int memory[];
+        public ContiguousMemory(){memory= new int[512];}
+
+        public int[] BestFit(int size){
+            int fit=0; int bestfit=513; int index=-1;
+            for(int i=0; i<512; i++){
+                if(memory[i]==1){
+                    if(fit<bestfit && fit>size){
+                        bestfit=fit; fit=0;
+                    }
+                }else{
+                    if(fit==0){
+                        index=i;
+                    }
+                    fit++;
+                }
+            }
+            int[] ans = new int[2];
+            ans[0]=bestfit; ans[1]=index;
+            return ans;
+        }
+
+        public int addprocess(int size){
+            int[] ans = BestFit(size);
+            int bestfit = ans[0];
+            int index = ans[1];
+            if(bestfit<513){
+                for(int i=index; i<index+size; i++){
+                    memory[i]=1;
+                }
+                return 1;
+            }
+            return -1;
+        }
+    }
+
+    static class NoncontiguousMemory{
+        public static ArrayList<Frame> Frames = new ArrayList<Frame>(64);
+        public NoncontiguousMemory(){}
+
+        public int addprocess(int size){
+            int frames = size/8 +1; int free=0;
+            for(int i=0; i<Frames.size(); i++){
+                if(Frames.get(i).occ==false){
+                    free++;
+                }
+            }
+            if(free>=frames){
+                for(int i =0; i<Frames.size(); i++){
+                    if(Frames.get(i).occ==false && frames>0){
+                        Frames.get(i).occ=true;
+                        frames--;
+                    }
+                }
+                return 1;
+            }
+            return -1;
+
+        }
+
+
+    }
+
+    static class VirtualMemory{
+        NoncontiguousMemory mem;
+        public VirtualMemory(){
+            mem =  new NoncontiguousMemory();
+        }
+    }
+
+    static class Frame{
+        int size; Boolean occ; int date_used;
+        public Frame(){size=8;occ=false; date_used=0;}
+    }
+
+    // 1-512 are in MM, 513-1024 are in VM
+    static class PageTable{
+        int[][][] mapping; static int global=0;
+        public PageTable(){mapping= new int[Processes.size()][5][2];}
+
+        public void fill(){
+            for(int i=0; i<Processes.size(); i++){
+                Process p = Processes.get(i);
+                for(int j=0; j<5; j++){
+                    Operation op = p.ops.get(j);
+                    mapping[i][j][0]=op.address;
+                    mapping[i][j][1]=op.virtual_address;
+                }
+            }
+        }
+    }
+
 
     static class Operation{
-        public String type; public int cycles;
-        public Operation(String t, int c){type=t; cycles=c;}
+        public String type; public int cycles; 
+     
+        public int size; public int address; public int virtual_address;
+     
+        public Operation(String t, int c, int s, int d){type=t; cycles=c; size=s; address=d;}
     }
 
     static class Process{
-        public ArrayList<Operation> ops; public String state; public int template; public int PID;
-        public Process(ArrayList<Operation> operations, int t){ops=operations; state="READY"; template =t;PID=ID++;}
+        public ArrayList<Operation> ops; public String state; public int template; public int PID; 
+      
+        public int size;
+     
+        public Process(ArrayList<Operation> operations, int t, int s){ops=operations; state="READY"; template =t;PID=ID++;size=s;}
     }
 
     static class PCB{
@@ -66,6 +168,7 @@ public class OS {
         ArrayList<Operation> operations = new ArrayList<Operation>();
 
         //Iterate over the list of operations
+        int total_size=0;
         for(int i=0; i<op_list.getLength(); i++){
             Node op  = op_list.item(i);
             if(op.getNodeType() == Node.ELEMENT_NODE){
@@ -74,23 +177,33 @@ public class OS {
                 String operationType = operation.getElementsByTagName("type").item(0).getTextContent();
                 String min = operation.getElementsByTagName("min").item(0).getTextContent();
                 String max = operation.getElementsByTagName("max").item(0).getTextContent();
+                String smin = operation.getElementsByTagName("smin").item(0).getTextContent();
+                String smax = operation.getElementsByTagName("smax").item(0).getTextContent();
 
                 int int_min = Integer.valueOf(min);
                 int int_max = Integer.valueOf(max);
+             
+                int int_smin = Integer.valueOf(smin);
+                int int_smax = Integer.valueOf(smax);
 
+                int address = Integer.valueOf(999999-100000)+100000;
+              
                 Random rand = new Random();
                 int cycles = rand.nextInt(int_max-int_min);
-
-                Operation opp = new Operation(operationType, cycles+int_min);
+             
+                int size = rand.nextInt(int_smax-int_smin);
+                total_size=total_size+size;
+             
+                Operation opp = new Operation(operationType, cycles+int_min, size+int_smin, address);
                 operations.add(opp);
             }
         }
         if(template=="pf1.xml"){
-            return new Process(operations, 1);
+            return new Process(operations, 1, total_size);
         }else if(template=="pf2.xml"){
-            return new Process(operations, 2);
+            return new Process(operations, 2, total_size);
         }
-        return new Process(operations, 3);
+        return new Process(operations, 3, total_size);
     }
 
     public static void createProcesses(String template, int n) throws SAXException, IOException, ParserConfigurationException{
@@ -162,6 +275,11 @@ public class OS {
                 p=Ready.get(0);
                 PCB block = Memory.get(searchMemory(p));
                 op=block.ops.get(block.curr_op);
+             
+                if(op.virtual_address>512){
+                    bringToMemory(p.PID, block.curr_op);
+                }
+                
                 CPU(p, 2);
                 ClassifyProcess(p);
                 updateIO();
@@ -175,7 +293,22 @@ public class OS {
         }
         
     }
-
+   
+    public static void bringToMemory(int PID, int opID){
+        int frame_TBReplaced= VictimSelection(mem);
+        pt.mapping[PID][opID][1]=frame_TBReplaced;
+    }
+    public static int VictimSelection(NoncontiguousMemory mem){
+        int date=999999; int index=0;
+        for(int i=0; i<64; i++){
+            if(mem.Frames.get(i).date_used<date){
+                date=mem.Frames.get(i).date_used;
+                index=i;
+            }
+        }
+        return index;
+    }
+    
     public static void updateIO() throws InterruptedException, SAXException, IOException, ParserConfigurationException{
         for(int i=0; i<IO.size(); i++){
             Process p =IO.get(i);
@@ -222,10 +355,12 @@ public class OS {
 
 
     public static void Organize(){
+        
         for(int i=0; i<Processes.size(); i++){
             Process p = Processes.get(i);
             Operation op=p.ops.get(0);
             if(op.type.equals("calculate")){
+                
                 Ready.add(p);
             }else if(op.type.equals("io")){
                 IO.add(p);
@@ -276,6 +411,21 @@ public class OS {
         }
     }
 
+    public static void OrganizeFCFS(){
+        ContiguousMemory mem=new ContiguousMemory();
+        for(int i=0; i<Processes.size(); i++){
+            Process p = Processes.get(i);
+            int success =  mem.addprocess(p.size);
+            if(success==1){
+                Ready.add(p);
+                Processes.remove(i);
+            }else{
+                //nothing
+            }
+        }
+    }
+
+
     public static void printStatsFCFS(int i){
         if(stats==0){
             //do nothing
@@ -298,13 +448,13 @@ public class OS {
         createProcesses("pf2.xml", n2);
         createProcesses("pf3.xml", n3);
         System.out.println("Executing FCFS...");
+        OrganizeFCFS();
         FCFS();
         return 1;
     }
 
-
-
     public static void main(String args[]) throws SAXException, IOException, ParserConfigurationException, InterruptedException{
+        
         System.out.println("Type the number of processes you wish to generate.");
         System.out.println("Program File 1: ");
         Scanner myObj = new Scanner(System.in);
@@ -330,10 +480,10 @@ public class OS {
         String exit = myObj.nextLine();
         if(exit.equals("x")){
 
-        }          
+        }
+                
         
 
     }
 }
-
 
