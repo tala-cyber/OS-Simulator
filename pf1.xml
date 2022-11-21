@@ -4,26 +4,36 @@
         <type>io</type>
         <min>3</min>
         <max>23</max>
+        <smin>1</smin>
+        <smax>5</smax>
     </operation>
     <operation>
         <type>io</type>
         <min>3</min>
         <max>22</max>
+        <smin>1</smin>
+        <smax>5</smax>
     </operation>
     <operation>
         <type>fork</type>
         <min>1</min>
         <max>23</max>
+        <smin>1</smin>
+        <smax>5</smax>
     </operation>
     <operation>
         <type>calculate</type>
         <min>17</min>
         <max>119</max>
+        <smin>1</smin>
+        <smax>5</smax>
     </operation>
     <operation>
         <type>io</type>
         <min>7</min>
         <max>17</max>
+        <smin>1</smin>
+        <smax>5</smax>
     </operation>
 </Process>                
 

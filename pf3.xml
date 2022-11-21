@@ -4,25 +4,35 @@
         <type>calculate</type>
         <min>1</min>
         <max>110</max>
+        <smin>1</smin>
+        <smax>5</smax>
     </operation>
     <operation>
         <type>io</type>
         <min>4</min>
         <max>22</max>
+        <smin>1</smin>
+        <smax>5</smax>
     </operation>
     <operation>
         <type>fork</type>
         <min>3</min>
         <max>23</max>
+        <smin>1</smin>
+        <smax>5</smax>
     </operation>
     <operation>
         <type>io</type>
         <min>5</min>
         <max>29</max>
+        <smin>1</smin>
+        <smax>5</smax>
     </operation>
     <operation>
         <type>calculate</type>
         <min>7</min>
         <max>127</max>
+        <smin>1</smin>
+        <smax>5</smax>
     </operation>
 </Process> 
